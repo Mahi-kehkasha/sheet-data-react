@@ -1,35 +1,12 @@
-import { useState, useCallback, useRef } from 'react'
-import { Container, Typography, Box, AppBar, Toolbar } from '@mui/material'
-import SheetInput from './components/SheetInput'
-import SheetViewer from './components/SheetViewer'
-import BoQSummary from './components/BoQSummary'
-import './App.css'
+import React, { useState } from 'react';
+import { Container, Typography, Box, AppBar, Toolbar, TextField, Button } from '@mui/material';
+import SheetViewer from './components/SheetViewer';
+import './App.css';
 
 function App() {
-  const [currentSheetId, setCurrentSheetId] = useState('')
-  const [currentSheetRange, setCurrentSheetRange] = useState('')
-  const [filteredBoQData, setFilteredBoQData] = useState([])
-
-  // Ref for the debounce timeout
-  const debounceTimeoutRef = useRef(null)
-
-  const handleSheetIdSubmit = useCallback((sheetId, sheetRange) => {
-    // Clear any existing timeout
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current)
-    }
-
-    // Set a new timeout
-    debounceTimeoutRef.current = setTimeout(() => {
-      setCurrentSheetId(sheetId)
-      setCurrentSheetRange(sheetRange)
-      setFilteredBoQData([]) // Reset filtered data when a new sheet is loaded
-    }, 500) // Debounce for 500ms
-  }, []) // Empty dependency array means this callback is memoized and doesn't recreate
-
-  const handleFilteredDataChange = useCallback((data) => {
-    setFilteredBoQData(data)
-  }, [])
+  const [sheetId, setSheetId] = useState('');
+  const [sheetRange, setSheetRange] = useState('Sheet1!A:Z');
+  const [submitted, setSubmitted] = useState(false);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -40,31 +17,42 @@ function App() {
           </Typography>
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth="lg" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
-        <Box sx={{ my: 4, p: 3, bgcolor: 'background.paper', borderRadius: '12px' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            Fetch & Display Sheet Data
+      <Container component="main" maxWidth="md" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
+        <Box sx={{ my: 4 }}>
+          <Typography variant="h4" align="center" gutterBottom>
+            Construction Materials Data (Google Sheets + AG Grid)
           </Typography>
-          <SheetInput onSheetIdSubmit={handleSheetIdSubmit} />
-          {currentSheetId && currentSheetRange && (
+          <Box component="form" onSubmit={e => { e.preventDefault(); setSubmitted(true); }}>
+            <TextField
+              label="Google Sheet ID"
+              value={sheetId}
+              onChange={e => setSheetId(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              helperText="Copy the ID from your Google Sheet URL (between /d/ and /edit)"
+            />
+            <TextField
+              label="Sheet Range"
+              value={sheetRange}
+              onChange={e => setSheetRange(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              helperText="e.g., Sheet1!A:Z"
+            />
+            <Button type="submit" variant="contained" sx={{ mt: 2 }}>Load Data</Button>
+          </Box>
+          {submitted && sheetId && sheetRange && (
             <SheetViewer 
-              sheetId={currentSheetId} 
-              sheetRange={currentSheetRange} 
-              onFilteredDataChange={handleFilteredDataChange}
+              sheetId={sheetId} 
+              sheetRange={sheetRange}
             />
           )}
-          {filteredBoQData.length > 0 && <BoQSummary filteredData={filteredBoQData} />}
         </Box>
       </Container>
-      <Box component="footer" sx={{ py: 3, px: 2, mt: 'auto', backgroundColor: 'primary.main', color: 'white' }}>
-        <Container maxWidth="lg">
-          <Typography variant="body2" align="center">
-            © {new Date().getFullYear()} Google Sheets Viewer. All rights reserved.
-          </Typography>
-        </Container>
-      </Box>
     </Box>
-  )
+  );
 }
 
-export default App
+export default App; 

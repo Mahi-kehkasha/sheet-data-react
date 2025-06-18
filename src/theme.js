@@ -2,15 +2,20 @@ import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
   palette: {
+    mode: 'dark',
     primary: {
-      main: '#2196f3', // A nice blue
+      main: '#00bcd4', // Cyan blue for primary
     },
     secondary: {
-      main: '#ffc107', // A warm yellow for accents
+      main: '#ff9800', // Orange for secondary
     },
     background: {
-      default: '#f8f9fa', // Light gray background
-      paper: '#ffffff', // White for paper components
+      default: '#121212', // Dark background
+      paper: '#1e1e1e', // Slightly lighter dark for paper components
+    },
+    text: {
+      primary: '#ffffff', // White text
+      secondary: '#b0b0b0', // Light gray for secondary text
     },
   },
   typography: {
@@ -18,20 +23,21 @@ const theme = createTheme({
     h4: {
       fontWeight: 600,
       marginBottom: '1.5rem',
-      color: '#343a40',
+      color: '#ffffff',
     },
     h6: {
       fontWeight: 500,
       marginBottom: '1rem',
-      color: '#495057',
+      color: '#ffffff',
     },
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: '8px', // Slightly rounded buttons
-          textTransform: 'none', // Keep original casing
+          borderRadius: '8px',
+          textTransform: 'none',
+          fontWeight: 500,
         },
       },
     },
@@ -40,6 +46,25 @@ const theme = createTheme({
         root: {
           '& .MuiOutlinedInput-root': {
             borderRadius: '8px',
+            backgroundColor: '#2a2a2a',
+            '& fieldset': {
+              borderColor: '#404040',
+            },
+            '&:hover fieldset': {
+              borderColor: '#00bcd4',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#00bcd4',
+            },
+          },
+          '& .MuiInputLabel-root': {
+            color: '#b0b0b0',
+            '&.Mui-focused': {
+              color: '#00bcd4',
+            },
+          },
+          '& .MuiInputBase-input': {
+            color: '#ffffff',
           },
         },
       },
@@ -47,8 +72,25 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)', // Softer shadow for paper elements
-          borderRadius: '12px', // Rounded corners for cards/tables
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          borderRadius: '12px',
+          backgroundColor: '#1e1e1e',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#1a1a1a',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#2a2a2a',
+          color: '#ffffff',
         },
       },
     },

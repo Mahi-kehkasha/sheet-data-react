@@ -1,188 +1,161 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { 
-  CircularProgress,
-  Alert,
-  Box,
-  Typography
-} from '@mui/material';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry } from '@ag-grid-community/core';
-import { AllCommunityModules } from '@ag-grid-community/all-modules';
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { CircularProgress, Alert, Box, Typography } from '@mui/material';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
 
-// Register the required AG Grid modules
-ModuleRegistry.registerModules(AllCommunityModules);
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
-import 'ag-grid-community/styles/ag-grid.css'; // Core grid CSS
-import 'ag-grid-community/styles/ag-theme-alpine.css'; // A theme for the grid
+// Custom light theme styles for AG Grid
+const lightGridStyles = `
+  .ag-theme-alpine {
+    --ag-background-color: #ffffff;
+    --ag-foreground-color: #000000;
+    --ag-header-background-color: #f5f5f5;
+    --ag-header-foreground-color: #000000;
+    --ag-row-hover-color: #f0f8ff;
+    --ag-selected-row-background-color: #00bcd4;
+    --ag-odd-row-background-color: #ffffff;
+    --ag-row-border-color: #e0e0e0;
+    --ag-cell-horizontal-border: solid #e0e0e0;
+    --ag-header-column-separator-color: #e0e0e0;
+    --ag-font-size: 14px;
+    --ag-font-family: 'Roboto', sans-serif;
+  }
+  
+  .ag-theme-alpine .ag-header-cell {
+    background-color: #f5f5f5;
+    color: #000000;
+    font-weight: 600;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  
+  .ag-theme-alpine .ag-cell {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #e0e0e0;
+  }
+  
+  .ag-theme-alpine .ag-row:hover {
+    background-color: #f0f8ff;
+  }
+  
+  .ag-theme-alpine .ag-row-selected {
+    background-color: #00bcd4 !important;
+    color: #ffffff;
+  }
+  
+  .ag-theme-alpine .ag-paging-panel {
+    background-color: #f5f5f5;
+    color: #000000;
+    border-top: 1px solid #e0e0e0;
+  }
+  
+  .ag-theme-alpine .ag-paging-button {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .ag-theme-alpine .ag-paging-button:hover {
+    background-color: #00bcd4;
+    color: #ffffff;
+  }
+  
+  .ag-theme-alpine .ag-paging-button.ag-disabled {
+    background-color: #f5f5f5;
+    color: #999999;
+  }
+  
+  .ag-theme-alpine .ag-paging-row-summary-panel {
+    color: #666666;
+  }
+  
+  .ag-theme-alpine .ag-paging-page-summary-panel {
+    color: #666666;
+  }
+`;
 
-const SheetViewer = ({ sheetId, sheetRange, onFilteredDataChange }) => {
+const SheetViewer = ({ sheetId, sheetRange }) => {
   const [rowData, setRowData] = useState([]);
   const [columnDefs, setColumnDefs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const gridRef = useRef();
-
   const API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
+
+  // Inject custom light styles
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = lightGridStyles;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchSheetData = async () => {
-      if (!sheetId || !sheetRange || !API_KEY) {
-        setError('Please provide Sheet ID, Range, and ensure API Key is set.');
-        setLoading(false);
-        return;
-      }
-
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        const response = await axios.get(
-          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetRange}?key=${API_KEY}`
-        );
-
-        const sheetValues = response.data.values;
-
-        if (!sheetValues || sheetValues.length === 0) {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetRange}?key=${API_KEY}`;
+        const response = await axios.get(url);
+        const values = response.data.values;
+        if (!values || values.length === 0) {
           setRowData([]);
           setColumnDefs([]);
-          setError(null);
+          setError('No data found in the sheet.');
           return;
         }
-
-        const headers = sheetValues[0];
-        const rows = sheetValues.slice(1);
-
-        // Dynamically create column definitions for AG Grid
-        // Special handling for a 'Cost' column if it exists
-        const newColumnDefs = headers.map(header => {
-          let colDef = {
+        const headers = values[0];
+        setColumnDefs(
+          headers.map(header => ({
             field: header,
-            headerName: header,
-            sortable: true,
             filter: true,
+            sortable: true,
             floatingFilter: true,
             resizable: true,
-          };
-          if (header.toLowerCase() === 'cost') {
-            colDef.type = 'numericColumn';
-            colDef.valueFormatter = params => {
-              return params.value != null ? `£${Number(params.value).toLocaleString()}` : '';
-            };
-            colDef.valueParser = params => {
-              return Number(params.newValue.replace(/[£,]/g, ''));
-            };
-          }
-          return colDef;
-        });
-        setColumnDefs(newColumnDefs);
-
-        // Prepare row data as an array of objects
-        const newRowData = rows.map(row => {
-          let rowObject = {};
-          headers.forEach((header, index) => {
-            rowObject[header] = row[index] !== undefined ? row[index] : '';
-          });
-          return rowObject;
-        });
-        setRowData(newRowData);
-        if (onFilteredDataChange) {
-          onFilteredDataChange(newRowData);
-        }
-
-        setError(null);
+            ...(header.toLowerCase().includes('cost') && {
+              type: 'numericColumn',
+              valueFormatter: params => params.value ? `₹${Number(params.value).toLocaleString()}` : '',
+            }),
+          }))
+        );
+        setRowData(
+          values.slice(1).map(row =>
+            Object.fromEntries(headers.map((h, i) => [h, row[i] || '']))
+          )
+        );
       } catch (err) {
-        console.error('Error fetching sheet data:', err);
-        if (axios.isAxiosError(err) && err.response) {
-          if (err.response.status === 403) {
-            setError('Access denied. Ensure the Google Sheet is public or your API key has correct permissions.');
-          } else if (err.response.status === 404) {
-            setError('Sheet or range not found. Please check the Sheet ID and Range.');
-          } else {
-            setError(`Failed to fetch data: ${err.response.statusText || 'Unknown Error'}. Please check inputs and network.`);
-          }
-        } else {
-          setError('An unexpected error occurred. Please try again.');
-        }
+        setError('Failed to fetch data. Check Sheet ID, Range, API key, and sharing settings.');
       } finally {
         setLoading(false);
       }
     };
+    if (sheetId && sheetRange && API_KEY) fetchSheetData();
+  }, [sheetId, sheetRange, API_KEY]);
 
-    fetchSheetData();
-  }, [sheetId, sheetRange, API_KEY, onFilteredDataChange]);
+  const defaultColDef = useMemo(() => ({ flex: 1, minWidth: 120 }), []);
 
-  const defaultColDef = useMemo(() => ({
-    flex: 1,
-    minWidth: 100,
-  }), []);
-
-  const onGridReady = useCallback((params) => {
-    params.api.sizeColumnsToFit();
-    // Initial data is also the initial filtered data
-    if (onFilteredDataChange && rowData.length > 0) {
-      onFilteredDataChange(rowData);
-    }
-  }, [onFilteredDataChange, rowData]);
-
-  // Handle filter changes and pass filtered rows up
-  const onFilterChanged = useCallback(() => {
-    if (gridRef.current && onFilteredDataChange) {
-      const filteredData = [];
-      gridRef.current.api.forEachNodeAfterFilter(node => {
-        filteredData.push(node.data);
-      });
-      onFilteredDataChange(filteredData);
-    }
-  }, [onFilteredDataChange]);
-
-  if (loading) {
-    return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight="200px" sx={{ mt: 4 }}>
-        <CircularProgress sx={{ mb: 2 }} />
-        <Typography variant="subtitle1" color="text.secondary">Loading sheet data...</Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert 
-        severity="error" 
-        sx={{
-          mt: 2,
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 2,
-          fontSize: '1.1rem'
-        }}
-      >
-        {error}
-      </Alert>
-    );
-  }
-
-  if (!rowData.length) {
-    return (
-      <Alert severity="info" sx={{ mt: 2, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', py: 2, fontSize: '1.1rem' }}>
-        No data available or invalid sheet/range. Ensure your sheet has headers and data.
-      </Alert>
-    );
-  }
+  if (loading) return <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}><CircularProgress /></Box>;
+  if (error) return <Alert severity="error">{error}</Alert>;
 
   return (
-    <Box sx={{ height: 500, width: '100%', mt: 4 }}>
+    <Box sx={{ height: 600, width: '100%', mt: 4 }}>
       <div className="ag-theme-alpine" style={{ height: '100%', width: '100%' }}>
         <AgGridReact
           ref={gridRef}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
-          onGridReady={onGridReady}
-          onFilterChanged={onFilterChanged} // Added to trigger updates on filter changes
-          animateRows={true}
-          enableRangeSelection={true}
-          // Other AG Grid properties can be added here
+          animateRows
+          enableRangeSelection
+          domLayout="autoHeight"
         />
       </div>
     </Box>
